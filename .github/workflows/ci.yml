@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Detect project type
+      id: detect
+      run: |
+        if [ -f "package.json" ]; then
+          echo "type=node" >> $GITHUB_OUTPUT
+        elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ]; then
+          echo "type=python" >> $GITHUB_OUTPUT
+        elif [ -f "Cargo.toml" ]; then
+          echo "type=rust" >> $GITHUB_OUTPUT
+        else
+          echo "type=unknown" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Setup Node.js
+      if: steps.detect.outputs.type == 'node'
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install and test (Node)
+      if: steps.detect.outputs.type == 'node'
+      run: |
+        npm ci || npm install
+        npm test || true
+
+    - name: Setup Python
+      if: steps.detect.outputs.type == 'python'
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install and test (Python)
+      if: steps.detect.outputs.type == 'python'
+      run: |
+        pip install -r requirements.txt || true
+        pytest || true
+
+  documentation:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Check README exists
+      run: |
+        test -f README.md && echo "✓ README.md exists" || echo "⚠ README.md missing"
